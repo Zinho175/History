@@ -27,6 +27,9 @@ public class EnemySpawner : MonoBehaviour
 
     private bool phaseComplete = false;
 
+    // Indica que a partida terminou por derrota
+    private bool spawningStopped = false;
+
     public int GetCurrentWave()
     {
         return currentWave;
@@ -44,8 +47,7 @@ public class EnemySpawner : MonoBehaviour
 
     void Start()
     {
-        // As ondas não começam automaticamente.
-        // O TutorialStartUI vai iniciar quando o jogador clicar em COMEÇAR.
+        StartWaves();
     }
 
     public void StartWaves()
@@ -57,6 +59,10 @@ public class EnemySpawner : MonoBehaviour
     {
         while (currentWave < maxWaves)
         {
+            // Se a base foi destruída, para tudo
+            if (spawningStopped)
+                yield break;
+
             currentWave++;
 
             Debug.Log(
@@ -66,9 +72,12 @@ public class EnemySpawner : MonoBehaviour
 
             yield return StartCoroutine(SpawnWave());
 
+            // Se a base morreu durante a onda
+            if (spawningStopped)
+                yield break;
+
             Debug.Log(
-                "Onda " + currentWave +
-                " terminou de spawnar!"
+                "Onda " + currentWave + " terminou de spawnar!"
             );
 
             if (currentWave >= maxWaves)
@@ -84,6 +93,10 @@ public class EnemySpawner : MonoBehaviour
                 yield return StartCoroutine(
                     WaitForAllEnemiesDefeated()
                 );
+
+                // Se a base morreu enquanto aguardávamos
+                if (spawningStopped)
+                    yield break;
 
                 phaseComplete = true;
 
@@ -108,6 +121,9 @@ public class EnemySpawner : MonoBehaviour
 
             yield return new WaitForSeconds(timeBetweenWaves);
 
+            if (spawningStopped)
+                yield break;
+
             enemiesPerWave += extraEnemiesPerWave;
         }
     }
@@ -118,6 +134,10 @@ public class EnemySpawner : MonoBehaviour
 
         while (enemiesSpawned < enemiesPerWave)
         {
+            // Para de spawnar imediatamente se houver derrota
+            if (spawningStopped)
+                yield break;
+
             SpawnEnemy();
 
             enemiesSpawned++;
@@ -130,6 +150,10 @@ public class EnemySpawner : MonoBehaviour
     {
         while (true)
         {
+            // Se houve derrota, abandona a espera
+            if (spawningStopped)
+                yield break;
+
             EnemyHealth[] enemies =
                 FindObjectsByType<EnemyHealth>(
                     FindObjectsSortMode.None
@@ -146,6 +170,10 @@ public class EnemySpawner : MonoBehaviour
 
     void SpawnEnemy()
     {
+        // Segurança extra
+        if (spawningStopped)
+            return;
+
         GameObject enemy = Instantiate(
             enemyPrefab,
             spawnPoint.position,
@@ -177,5 +205,44 @@ public class EnemySpawner : MonoBehaviour
         Debug.Log(
             "Inimigo criado: " + enemy.name
         );
+    }
+
+    // =====================================================
+    // DERROTA
+    // =====================================================
+
+    public void StopSpawningAndKillEnemies()
+    {
+        // Evita executar duas vezes
+        if (spawningStopped)
+            return;
+
+        spawningStopped = true;
+
+        Debug.Log("🛑 SPAWN DE INIMIGOS INTERROMPIDO!");
+
+        // Para todas as coroutines deste EnemySpawner
+        StopAllCoroutines();
+
+        // Encontra todos os inimigos vivos
+        EnemyHealth[] enemies =
+            FindObjectsByType<EnemyHealth>(
+                FindObjectsSortMode.None
+            );
+
+        Debug.Log(
+            "💀 Eliminando " + enemies.Length +
+            " inimigos restantes..."
+        );
+
+        foreach (EnemyHealth enemy in enemies)
+        {
+            if (enemy != null)
+            {
+                Destroy(enemy.gameObject);
+            }
+        }
+
+        Debug.Log("💀 Todos os inimigos foram eliminados!");
     }
 }

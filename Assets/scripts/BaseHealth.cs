@@ -5,11 +5,14 @@ public class BaseHealth : MonoBehaviour
     [Header("Vida da Base")]
     public float maxHealth = 1000f;
 
+    [Header("Tela de Derrota")]
+    public DefeatUI defeatUI;
+
     private float currentHealth;
+    private bool baseDestruida = false;
 
     void Start()
     {
-        // Começa com a vida máxima
         currentHealth = maxHealth;
 
         Debug.Log("Base criada com " + currentHealth + " de vida.");
@@ -17,12 +20,18 @@ public class BaseHealth : MonoBehaviour
 
     public void TakeDamage(float damage)
     {
-        // Diminui a vida
+        if (baseDestruida)
+            return;
+
         currentHealth -= damage;
 
-        Debug.Log("A base recebeu " + damage + " de dano. Vida: " + currentHealth);
+        currentHealth = Mathf.Max(currentHealth, 0);
 
-        // Verifica se a base foi destruída
+        Debug.Log(
+            "A base recebeu " + damage +
+            " de dano. Vida: " + currentHealth
+        );
+
         if (currentHealth <= 0)
         {
             DestroyBase();
@@ -31,9 +40,39 @@ public class BaseHealth : MonoBehaviour
 
     void DestroyBase()
     {
-        Debug.Log("A BASE FOI DESTRUÍDA!");
+        if (baseDestruida)
+            return;
 
-        // Futuramente vamos colocar a tela de derrota aqui
+        baseDestruida = true;
+
+        Debug.Log("💀 A BASE FOI DESTRUÍDA!");
+
+        // Para o spawn e elimina os inimigos
+        EnemySpawner spawner =
+            FindFirstObjectByType<EnemySpawner>();
+
+        if (spawner != null)
+        {
+            spawner.StopSpawningAndKillEnemies();
+        }
+        else
+        {
+            Debug.LogWarning(
+                "⚠️ EnemySpawner não encontrado na cena!"
+            );
+        }
+
+        // Mostra a tela de derrota
+        if (defeatUI != null)
+        {
+            defeatUI.ShowDefeat();
+        }
+        else
+        {
+            Debug.LogWarning(
+                "⚠️ DefeatUI não foi configurado no BaseHealth!"
+            );
+        }
     }
 
     public float GetCurrentHealth()
